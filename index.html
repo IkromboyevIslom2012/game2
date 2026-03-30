@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="uz">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Snake Tournament Pro</title>
+    <style>
+        :root {
+            --bg: #020408;
+            --surface: #0f121a;
+            --accent: #3b82f6;
+            --text: #ffffff;
+            --grid: rgba(255, 255, 255, 0.03);
+        }
+
+        body.blue-mode {
+            --bg: #010816;
+            --surface: #1e293b;
+            --accent: #0ea5e9;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            touch-action: none;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: system-ui, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 10px;
+            transition: 0.3s;
+        }
+
+        .app-container {
+            width: 244px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .theme-btn {
+            position: absolute;
+            top: -45px;
+            right: 0;
+            background: var(--surface);
+            border: 1px solid var(--grid);
+            color: white;
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            background: var(--surface);
+            padding: 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            border: 1px solid var(--grid);
+        }
+
+        .game-viewport {
+            position: relative;
+            width: 244px;
+            height: 244px;
+            border: 2px solid var(--surface);
+            border-radius: 12px;
+            background: #000;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        #menu {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 15px;
+            text-align: center;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            background: #111;
+            color: white;
+            margin-bottom: 10px;
+            text-align: center;
+            outline: none;
+        }
+
+        .start-btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 0 15px var(--accent);
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            width: 170px;
+            margin: 5px auto 0;
+        }
+
+        .btn-dir {
+            width: 50px;
+            height: 50px;
+            background: var(--surface);
+            border: 1px solid var(--grid);
+            border-radius: 14px;
+            color: white;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 0px rgba(0, 0, 0, 0.5);
+        }
+
+        .btn-dir:active {
+            background: var(--accent);
+            transform: translateY(2px);
+            box-shadow: none;
+        }
+
+        .up {
+            grid-column: 2;
+            grid-row: 1;
+        }
+
+        .left {
+            grid-column: 1;
+            grid-row: 2;
+        }
+
+        .right {
+            grid-column: 3;
+            grid-row: 2;
+        }
+
+        .down {
+            grid-column: 2;
+            grid-row: 3;
+        }
+
+        .leaderboard {
+            background: var(--surface);
+            border-radius: 12px;
+            padding: 10px;
+            font-size: 11px;
+            border: 1px solid var(--grid);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="app-container">
+        <button class="theme-btn" onclick="toggleTheme()">🌓</button>
+
+        <div class="header">
+            <span id="pName" style="color: var(--accent);">Ism...</span>
+            <span id="turnLabel">Tur: 0/5</span>
+            <span id="pScore" style="font-weight: bold;">0</span>
+        </div>
+
+        <div class="game-viewport">
+            <canvas id="stage" width="240" height="240"></canvas>
+            <div id="menu">
+                <h3 id="menuTitle" style="margin-bottom: 10px; font-size: 16px;">Turnirni Boshlash</h3>
+                <input type="text" id="nameIn" placeholder="Ismingiz">
+                <button class="start-btn" id="mainBtn" onclick="game.init()">BOSHLASH</button>
+            </div>
+        </div>
+
+        <div class="leaderboard" id="scoreList">
+            <p style="opacity: 0.3; text-align: center;">Jadval bo'sh</p>
+        </div>
+
+        <div class="controls">
+            <button class="btn-dir up" onclick="game.setDir('UP')">↑</button>
+            <button class="btn-dir left" onclick="game.setDir('LEFT')">←</button>
+            <button class="btn-dir right" onclick="game.setDir('RIGHT')">→</button>
+            <button class="btn-dir down" onclick="game.setDir('DOWN')">↓</button>
+        </div>
+    </div>
+
+    <script>
+        function toggleTheme() { document.body.classList.toggle('blue-mode'); }
+
+        class SnakeTournament {
+            constructor() {
+                this.cvs = document.getElementById('stage');
+                this.ctx = this.cvs.getContext('2d');
+                this.cs = 12;
+                this.history = [];
+                this.isPlaying = false;
+                this.turns = 0;
+
+                window.addEventListener('keydown', e => {
+                    const keys = { ArrowUp: 'UP', w: 'UP', ArrowDown: 'DOWN', s: 'DOWN', ArrowLeft: 'LEFT', a: 'LEFT', ArrowRight: 'RIGHT', d: 'RIGHT' };
+                    if (keys[e.key]) this.setDir(keys[e.key]);
+                });
+                this.drawGrid();
+            }
+
+            init() {
+                const nameInput = document.getElementById('nameIn');
+                const name = nameInput.value.trim();
+
+                if (!name) return alert("Ism kiriting!");
+
+                // Ism takrorlanmasligi
+                if (this.history.some(p => p.name.toLowerCase() === name.toLowerCase())) {
+                    return alert("Bu ism band! Boshqa ism tanlang.");
+                }
+
+                this.pName = name;
+                document.getElementById('pName').innerText = name;
+                document.getElementById('menu').style.display = 'none';
+                this.reset();
+            }
+
+            reset() {
+                this.snake = [{ x: 10, y: 10 }, { x: 9, y: 10 }];
+                this.dir = { x: 0, y: 0 };
+                this.nextDir = { x: 0, y: 0 };
+                this.food = this.spawn();
+                this.score = 0;
+                this.isPlaying = true;
+                this.isMoving = false;
+                document.getElementById('pScore').innerText = "0";
+                if (this.loop) clearInterval(this.loop);
+                this.loop = setInterval(() => this.update(), 125);
+                this.render();
+            }
+
+            spawn() { return { x: Math.floor(Math.random() * 20), y: Math.floor(Math.random() * 20) }; }
+
+            setDir(d) {
+                if (!this.isPlaying) return;
+                const moves = { UP: { x: 0, y: -1 }, DOWN: { x: 0, y: 1 }, LEFT: { x: -1, y: 0 }, RIGHT: { x: 1, y: 0 } };
+                const nd = moves[d];
+                if (!this.isMoving) {
+                    this.dir = nd; this.nextDir = nd; this.isMoving = true;
+                    return;
+                }
+                if (nd.x !== -this.dir.x && nd.y !== -this.dir.y) this.nextDir = nd;
+            }
+
+            drawGrid() {
+                this.ctx.fillStyle = '#000';
+                this.ctx.fillRect(0, 0, 240, 240);
+                this.ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--grid');
+                for (let i = 0; i <= 240; i += this.cs) {
+                    this.ctx.beginPath(); this.ctx.moveTo(i, 0); this.ctx.lineTo(i, 240); this.ctx.stroke();
+                    this.ctx.beginPath(); this.ctx.moveTo(0, i); this.ctx.lineTo(240, i); this.ctx.stroke();
+                }
+            }
+
+            update() {
+                if (!this.isMoving) return;
+                this.dir = this.nextDir;
+                const head = { x: this.snake[0].x + this.dir.x, y: this.snake[0].y + this.dir.y };
+
+                if (head.x < 0 || head.x >= 20 || head.y < 0 || head.y >= 20 || this.snake.some(s => s.x === head.x && s.y === head.y)) {
+                    return this.over();
+                }
+
+                this.snake.unshift(head);
+                if (head.x === this.food.x && head.y === this.food.y) {
+                    this.score++;
+                    document.getElementById('pScore').innerText = this.score;
+                    this.food = this.spawn();
+                } else { this.snake.pop(); }
+                this.render();
+            }
+
+            render() {
+                this.drawGrid();
+                this.ctx.shadowBlur = 15;
+                this.ctx.shadowColor = '#ff4444';
+                this.ctx.fillStyle = '#ff4444';
+                this.ctx.beginPath();
+                this.ctx.arc(this.food.x * 12 + 6, this.food.y * 12 + 6, 5, 0, Math.PI * 2);
+                this.ctx.fill();
+
+                const color = getComputedStyle(document.body).getPropertyValue('--accent');
+                this.ctx.shadowColor = color;
+                this.snake.forEach((s, i) => {
+                    this.ctx.fillStyle = i === 0 ? color : 'rgba(255,255,255,0.25)';
+                    this.ctx.beginPath();
+                    this.ctx.roundRect(s.x * 12 + 1, s.y * 12 + 1, 10, 10, 2.5);
+                    this.ctx.fill();
+                });
+                this.ctx.shadowBlur = 0;
+            }
+
+            over() {
+                this.isMoving = false;
+                this.isPlaying = false;
+                clearInterval(this.loop);
+
+                this.history.push({ name: this.pName, score: this.score });
+                this.turns++;
+                document.getElementById('turnLabel').innerText = `Tur: ${this.turns}/5`;
+
+                this.updateBoard();
+
+                if (this.turns >= 5) {
+                    this.finishTournament();
+                } else {
+                    alert(`O'yin tugadi! Ball: ${this.score}`);
+                    document.getElementById('nameIn').value = '';
+                    document.getElementById('menu').style.display = 'flex';
+                }
+            }
+
+            finishTournament() {
+                const winner = [...this.history].sort((a, b) => b.score - a.score)[0];
+                document.getElementById('menuTitle').innerHTML = `🏆 G'OLIB: ${winner.name}<br>Ball: ${winner.score}`;
+                document.getElementById('nameIn').style.display = 'none';
+                document.getElementById('mainBtn').innerText = "YANGI TURNIR";
+                document.getElementById('mainBtn').onclick = () => location.reload();
+                document.getElementById('menu').style.display = 'flex';
+            }
+
+            updateBoard() {
+                const b = document.getElementById('scoreList');
+                this.history.sort((a, b) => b.score - a.score);
+                b.innerHTML = this.history.map((s, i) =>
+                    `<div style="display:flex; justify-content:space-between; margin-bottom:2px;"><span>${i + 1}. ${s.name}</span><b>${s.score}</b></div>`).join('');
+            }
+        }
+
+        const game = new SnakeTournament();
+    </script>
+</body>
+
+</html>
